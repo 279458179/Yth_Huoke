@@ -6,8 +6,8 @@ import webbrowser
 import os
 import time
 
-from config import COOKIE_FILE, PLATFORMS, FUNC_TYPES, DEFAULT_PAGE_COUNT, DEFAULT_PER_PAGE
-from core import DouyinPlaywrightCrawler
+from config import COOKIE_FILES, PLATFORMS, FUNC_TYPES, DEFAULT_PAGE_COUNT, DEFAULT_PER_PAGE
+from core import DouyinPlaywrightCrawler, KuaishouPlaywrightCrawler, XiaohongshuPlaywrightCrawler, BilibiliPlaywrightCrawler
 from utils.logger import log
 
 
@@ -23,11 +23,14 @@ class CrawlerApp:
         # 爬虫实例
         self.crawler = None
         self.is_running = False
-        self.cookie = ""
+        self.cookies = {}  # 各平台Cookie缓存
 
         # 初始化界面
         self._create_ui()
-        self._load_cookie()
+        self._load_all_cookies()
+
+        # 绑定平台切换事件
+        self.platform_var.trace('w', self._on_platform_change)
 
     def _create_ui(self):
         """创建界面组件"""
@@ -42,6 +45,7 @@ class CrawlerApp:
         ttk.Button(toolbar, text="Cookie配置", command=self._open_cookie_file).pack(side=tk.LEFT, padx=5)
         ttk.Button(toolbar, text="查看日志", command=self._open_log_dir).pack(side=tk.LEFT, padx=5)
         ttk.Button(toolbar, text="查看结果", command=self._open_result_dir).pack(side=tk.LEFT, padx=5)
+        ttk.Button(toolbar, text="刷新Cookie", command=self._load_all_cookies).pack(side=tk.LEFT, padx=5)
 
         # === 平台选择 ===
         platform_frame = ttk.LabelFrame(main_frame, text="平台选择", padding="5")
@@ -137,33 +141,65 @@ class CrawlerApp:
         elif func == 'user_posts':
             self.input_label.config(text="主页链接（如：https://www.douyin.com/user/xxx）:")
 
-    def _load_cookie(self):
-        """加载Cookie"""
-        try:
-            if os.path.exists(COOKIE_FILE):
-                with open(COOKIE_FILE, 'r', encoding='utf-8') as f:
-                    lines = f.readlines()
-                    # 跳过注释行和空行，找到实际的cookie
-                    cookie_lines = []
-                    for line in lines:
-                        line = line.strip()
-                        if line and not line.startswith('#'):
-                            cookie_lines.append(line)
+    def _load_all_cookies(self):
+        """加载所有平台的Cookie"""
+        self.cookies = {}
+        for platform, cookie_file in COOKIE_FILES.items():
+            try:
+                if os.path.exists(cookie_file):
+                    with open(cookie_file, 'r', encoding='utf-8') as f:
+                        lines = f.readlines()
+                        cookie_lines = []
+                        for line in lines:
+                            line = line.strip()
+                            if line and not line.startswith('#'):
+                                cookie_lines.append(line)
+                        cookie = ''.join(cookie_lines).strip()
+                        if cookie:
+                            self.cookies[platform] = cookie
+                            self._log(f"[{PLATFORMS.get(platform, platform)}] Cookie已加载（长度: {len(cookie)} 字符）")
+                        else:
+                            self._log(f"[{PLATFORMS.get(platform, platform)}] Cookie文件为空")
+                else:
+                    self._log(f"[{PLATFORMS.get(platform, platform)}] Cookie文件不存在: {cookie_file}")
+            except Exception as e:
+                self._log(f"[{PLATFORMS.get(platform, platform)}] Cookie加载失败: {e}")
 
-                    self.cookie = ''.join(cookie_lines).strip()
-                    if self.cookie:
-                        self._log(f"Cookie已加载（长度: {len(self.cookie)} 字符）")
-                    else:
-                        self._log("请先配置Cookie（点击 'Cookie配置' 按钮）")
-        except Exception as e:
-            self._log(f"Cookie加载失败: {e}")
+        # 检查当前平台Cookie状态
+        self._check_current_cookie()
+
+    def _on_platform_change(self, *args):
+        """平台切换时检查Cookie"""
+        self._check_current_cookie()
+
+    def _check_current_cookie(self):
+        """检查当前平台的Cookie状态"""
+        platform = self.platform_var.get()
+        platform_name = PLATFORMS.get(platform, platform)
+        if platform in self.cookies and self.cookies[platform]:
+            self.status_var.set(f"{platform_name} - Cookie已配置")
+        else:
+            self.status_var.set(f"{platform_name} - 请配置Cookie")
 
     def _open_cookie_file(self):
-        """打开Cookie文件"""
-        if os.path.exists(COOKIE_FILE):
-            webbrowser.open(COOKIE_FILE)
+        """打开当前平台的Cookie文件"""
+        platform = self.platform_var.get()
+        cookie_file = COOKIE_FILES.get(platform)
+        platform_name = PLATFORMS.get(platform, platform)
+
+        if cookie_file:
+            if os.path.exists(cookie_file):
+                webbrowser.open(cookie_file)
+            else:
+                # 创建空的Cookie文件
+                with open(cookie_file, 'w', encoding='utf-8') as f:
+                    f.write(f"# {platform_name} Cookie配置文件\n")
+                    f.write(f"# 请在登录{platform_name}后，从浏览器开发者工具中复制Cookie\n")
+                    f.write(f"# Cookie示例格式：name1=value1; name2=value2\n\n")
+                webbrowser.open(cookie_file)
+                self._log(f"已创建 {platform_name} Cookie文件，请配置后点击'刷新Cookie'")
         else:
-            messagebox.showinfo("提示", f"Cookie文件不存在: {COOKIE_FILE}")
+            messagebox.showinfo("提示", f"未找到 {platform_name} 的Cookie文件配置")
 
     def _open_log_dir(self):
         """打开日志目录"""
@@ -200,9 +236,13 @@ class CrawlerApp:
 
     def _start_crawl(self):
         """开始采集"""
-        # 检查Cookie
-        if not self.cookie or self.cookie.startswith('#'):
-            messagebox.showwarning("提示", "请先配置Cookie！")
+        # 检查当前平台Cookie
+        platform = self.platform_var.get()
+        cookie = self.cookies.get(platform, '')
+
+        if not cookie or cookie.startswith('#'):
+            platform_name = PLATFORMS.get(platform, platform)
+            messagebox.showwarning("提示", f"请先配置 {platform_name} 的Cookie！")
             return
 
         # 获取输入
@@ -229,18 +269,24 @@ class CrawlerApp:
         # 在后台线程执行采集
         thread = threading.Thread(
             target=self._crawl_thread,
-            args=(input_text, page_count, per_page),
+            args=(input_text, page_count, per_page, cookie),
             daemon=True
         )
         thread.start()
 
-    def _crawl_thread(self, input_text, page_count, per_page):
+    def _crawl_thread(self, input_text, page_count, per_page, cookie):
         """采集线程"""
         try:
             # 创建爬虫实例
             platform = self.platform_var.get()
             if platform == 'douyin':
-                self.crawler = DouyinPlaywrightCrawler(cookie=self.cookie)
+                self.crawler = DouyinPlaywrightCrawler(cookie=cookie)
+            elif platform == 'kuaishou':
+                self.crawler = KuaishouPlaywrightCrawler(cookie=cookie)
+            elif platform == 'xiaohongshu':
+                self.crawler = XiaohongshuPlaywrightCrawler(cookie=cookie)
+            elif platform == 'bilibili':
+                self.crawler = BilibiliPlaywrightCrawler(cookie=cookie)
             else:
                 self._log(f"平台 {platform} 暂未实现")
                 return

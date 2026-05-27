@@ -4,7 +4,15 @@ import os
 # 项目根目录
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Cookie文件路径
+# Cookie文件路径 - 各平台单独配置
+COOKIE_FILES = {
+    'douyin': os.path.join(BASE_DIR, 'cookie_douyin.txt'),
+    'kuaishou': os.path.join(BASE_DIR, 'cookie_kuaishou.txt'),
+    'xiaohongshu': os.path.join(BASE_DIR, 'cookie_xiaohongshu.txt'),
+    'bilibili': os.path.join(BASE_DIR, 'cookie_bilibili.txt'),
+}
+
+# 默认Cookie文件（通用，已废弃）
 COOKIE_FILE = os.path.join(BASE_DIR, 'cookie.txt')
 
 # 日志目录

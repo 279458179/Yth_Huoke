@@ -1,9 +1,10 @@
 # 视频平台数据采集工具
 
-一款通用的视频平台数据采集工具，支持抖音、快手、小红书等平台的数据采集。
+一款通用的视频平台数据采集工具，支持抖音、快手、小红书、B站等平台的数据采集。
 
 ## 功能特性
 
+- **搜索视频采集**：根据关键词搜索视频并采集视频数据
 - **搜索评论采集**：根据关键词搜索视频并采集评论数据
 - **作品链接评论采集**：直接根据作品链接采集评论
 - **主页作品采集**：根据博主主页链接采集作品数据
@@ -11,28 +12,66 @@
 ## 支持平台
 
 - ✅ 抖音（已实现）
-- ⏳ 快手（预留）
-- ⏳ 小红书（预留）
-- ⏳ B站（预留）
+- ✅ 快手（已实现）
+- ✅ 小红书（已实现）
+- ✅ B站（已实现）
 
 ## 安装使用
 
 ### 1. 环境要求
 
 - Python 3.8+
-- 无需额外依赖（使用Python内置库）
+- Playwright（用于浏览器自动化）
 
-### 2. 获取Cookie
+### 2. 安装依赖
 
+```bash
+pip install playwright
+playwright install chromium
+```
+
+### 3. 获取Cookie
+
+各平台Cookie获取方式：
+
+**抖音：**
 1. 打开浏览器访问 https://www.douyin.com
 2. 登录抖音账号
 3. 按 F12 打开开发者工具
 4. 切换到 Network（网络）标签
 5. 刷新页面，找到任意请求
 6. 在请求头中找到 Cookie 字段，复制完整内容
-7. 将复制的Cookie粘贴到 `cookie.txt` 文件中
 
-### 3. 运行程序
+**快手：**
+1. 打开浏览器访问 https://www.kuaishou.com
+2. 登录快手账号
+3. 按上述步骤获取Cookie
+
+**小红书：**
+1. 打开浏览器访问 https://www.xiaohongshu.com
+2. 登录小红书账号
+3. 按上述步骤获取Cookie
+
+**B站：**
+1. 打开浏览器访问 https://www.bilibili.com
+2. 登录B站账号
+3. 按上述步骤获取Cookie
+
+### 4. 配置Cookie
+
+各平台使用独立的Cookie文件，格式如下：
+- `cookie_douyin.txt` - 抖音Cookie
+- `cookie_kuaishou.txt` - 快手Cookie
+- `cookie_xiaohongshu.txt` - 小红书Cookie
+- `cookie_bilibili.txt` - B站Cookie
+
+在程序中：
+1. 选择对应平台
+2. 点击"Cookie配置"按钮，会自动打开/创建该平台的Cookie文件
+3. 将Cookie粘贴到文件中保存
+4. 点击"刷新Cookie"按钮加载最新Cookie
+
+### 5. 运行程序
 
 ```bash
 python main.py
@@ -115,8 +154,12 @@ Yth_Huoke/
 ├── config.py            # 配置文件
 ├── cookie.txt           # Cookie存储
 ├── core/
-│   ├── base_crawler.py  # 爬虫基类
-│   └── douyin.py        # 抖音平台实现
+│   ├── base_crawler.py        # 爬虫基类
+│   ├── douyin.py              # 抖音API实现（备用）
+│   ├── douyin_playwright.py   # 抖音Playwright实现
+│   ├── kuaishou_playwright.py # 快手Playwright实现
+│   ├── xiaohongshu_playwright.py # 小红书Playwright实现
+│   └── bilibili_playwright.py # B站Playwright实现
 ├── utils/
 │   ├── request.py       # HTTP请求封装
 │   ├── storage.py       # 数据存储
